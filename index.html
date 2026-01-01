@@ -2,8 +2,15 @@
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <title>Sistema de Gestão Escolar - AESAC</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
@@ -30,6 +37,17 @@
             background: var(--cinza-claro);
             min-height: 100vh;
             font-size: 15px;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Melhorar scroll em dispositivos touch */
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        button, a, input, select, textarea {
+            -webkit-tap-highlight-color: rgba(0,0,0,0.1);
         }
 
         /* LOGIN */
@@ -227,6 +245,8 @@
             position: sticky;
             top: 0;
             z-index: 100;
+            flex-wrap: wrap;
+            gap: 15px;
         }
 
         .dashboard-title {
@@ -369,6 +389,7 @@
             justify-content: center;
             padding: 20px;
             overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         .modal.active {
@@ -707,8 +728,25 @@
                 padding: 15px 20px;
             }
 
+            .dashboard-title {
+                font-size: 18px;
+            }
+
+            .dashboard-user {
+                width: 100%;
+                justify-content: space-between;
+                flex-wrap: wrap;
+            }
+
+            .sync-indicator {
+                order: -1;
+                width: 100%;
+                justify-content: center;
+                margin-bottom: 10px;
+            }
+
             .dashboard-body {
-                padding: 20px;
+                padding: 20px 15px;
             }
 
             .students-grid {
@@ -721,10 +759,89 @@
 
             .modal-content {
                 max-width: 100%;
+                margin: 0;
+                border-radius: 0;
+                max-height: 100vh;
+            }
+
+            .modal-header {
+                padding: 20px 15px;
+            }
+
+            .modal-body {
+                padding: 20px 15px;
+            }
+
+            .modal-title {
+                font-size: 20px;
             }
 
             .action-buttons {
                 flex-direction: column;
+            }
+
+            .action-buttons .btn {
+                width: 100%;
+            }
+
+            .student-card {
+                padding: 20px 15px;
+            }
+
+            .discipline-item {
+                padding: 15px;
+            }
+
+            .form-input, .form-select, .form-textarea {
+                font-size: 16px; /* Evita zoom automático no iOS */
+            }
+
+            .btn {
+                padding: 12px 20px;
+                font-size: 14px;
+            }
+
+            .btn-sm {
+                padding: 10px 16px;
+                font-size: 13px;
+            }
+
+            .login-container {
+                padding: 40px 25px;
+            }
+
+            .login-title {
+                font-size: 24px;
+            }
+
+            .tabs {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .tab {
+                white-space: nowrap;
+                min-width: max-content;
+            }
+
+            h2 {
+                font-size: 18px !important;
+            }
+
+            .section-title {
+                font-size: 16px;
+            }
+
+            .discipline-name {
+                font-size: 16px;
+            }
+
+            .student-name {
+                font-size: 16px;
+            }
+
+            .user-info {
+                display: none; /* Ocultar info do usuário em mobile para economizar espaço */
             }
         }
     </style>
@@ -777,14 +894,14 @@
         </div>
 
         <div class="dashboard-body">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px;">
                 <h2 style="color: var(--azul-institucional); font-size: 20px; font-family: 'Poppins', sans-serif; font-weight: 600;">Gestão de Alunos</h2>
-                <div style="display: flex; gap: 10px;">
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                     <button class="btn btn-info btn-sm" onclick="syncData()">
                         🔄 Sincronizar
                     </button>
                     <button class="btn btn-success btn-sm" onclick="exportData()">
-                        💾 Exportar Dados
+                        💾 Exportar
                     </button>
                 </div>
             </div>
@@ -856,15 +973,82 @@
             <div class="modal-body">
                 <form id="addTestForm">
                     <div class="form-group">
-                        <label class="form-label">Nome do Teste</label>
-                        <input type="text" class="form-input" id="testName" placeholder="Ex: Teste 1, Exame Final, etc." required>
+                        <label class="form-label">Nome da Avaliação</label>
+                        <input type="text" class="form-input" id="testName" placeholder="Ex: Teste 1, Ficha 2, Trabalho de Grupo, etc." required>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Nota (0-20 valores)</label>
                         <input type="number" class="form-input" id="testGrade" min="0" max="20" step="0.1" placeholder="Ex: 15.5" required>
                     </div>
+                    
+                    <div style="background: var(--cinza-claro); padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                        <div style="font-family: 'Poppins', sans-serif; font-weight: 600; color: var(--azul-institucional); margin-bottom: 15px; font-size: 15px;">
+                            📊 Sistema de Ponderação (escolha uma opção)
+                        </div>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                <input type="radio" name="weightType" value="category" id="useCategoryWeight" onchange="toggleWeightFields()" checked>
+                                <div>
+                                    <strong>Usar Categorias</strong> (Recomendado)
+                                    <div style="font-size: 12px; color: var(--cinza-medio); margin-top: 3px;">
+                                        Ex: Testes=75%, Fichas=25%
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                        
+                        <div id="categoryFields" style="margin-left: 30px; margin-bottom: 15px;">
+                            <div class="form-group" style="margin-bottom: 10px;">
+                                <label class="form-label">Tipo/Categoria</label>
+                                <input type="text" class="form-input" id="testCategory" placeholder="Ex: Testes, Fichas, Trabalhos, Exame">
+                                <div style="font-size: 11px; color: var(--cinza-medio); margin-top: 3px;">
+                                    💡 Todas as avaliações da mesma categoria terão média calculada juntas
+                                </div>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Peso da Categoria (%)</label>
+                                <input type="number" class="form-input" id="testCategoryWeight" min="0" max="100" step="0.1" placeholder="Ex: 75 (para 75%)">
+                                <div style="font-size: 11px; color: var(--cinza-medio); margin-top: 3px;">
+                                    💡 Ex: Se Testes=75%, todas as avaliações tipo "Testes" valem 75% da nota final
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-bottom: 10px;">
+                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                <input type="radio" name="weightType" value="individual" id="useIndividualWeight" onchange="toggleWeightFields()">
+                                <div>
+                                    <strong>Peso Individual</strong>
+                                    <div style="font-size: 12px; color: var(--cinza-medio); margin-top: 3px;">
+                                        Cada avaliação tem seu próprio peso (deve somar 100%)
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                        
+                        <div id="individualWeightField" style="margin-left: 30px; margin-bottom: 15px; display: none;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Peso Individual (%)</label>
+                                <input type="number" class="form-input" id="testWeight" min="0" max="100" step="0.1" placeholder="Ex: 30 (para 30%)">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                <input type="radio" name="weightType" value="simple" id="useSimpleAverage" onchange="toggleWeightFields()">
+                                <div>
+                                    <strong>Média Simples</strong>
+                                    <div style="font-size: 12px; color: var(--cinza-medio); margin-top: 3px;">
+                                        Todas as avaliações valem igual
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    
                     <div class="form-group">
-                        <label class="form-label">Upload do Teste (opcional)</label>
+                        <label class="form-label">Upload da Avaliação (opcional)</label>
                         <div class="file-upload-wrapper">
                             <input type="file" id="testFile" class="file-upload-input" accept="image/*,.pdf" onchange="handleFileSelect(event)">
                             <label for="testFile" class="file-upload-label">
@@ -875,12 +1059,25 @@
                     </div>
                     <div class="action-buttons">
                         <button type="button" class="btn btn-secondary" onclick="closeAddTestModal()">Cancelar</button>
-                        <button type="submit" class="btn btn-success">Adicionar Teste</button>
+                        <button type="submit" class="btn btn-success">Adicionar Avaliação</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
+
+    <script>
+        function toggleWeightFields() {
+            const categoryFields = document.getElementById('categoryFields');
+            const individualField = document.getElementById('individualWeightField');
+            
+            const useCategory = document.getElementById('useCategoryWeight').checked;
+            const useIndividual = document.getElementById('useIndividualWeight').checked;
+            
+            categoryFields.style.display = useCategory ? 'block' : 'none';
+            individualField.style.display = useIndividual ? 'block' : 'none';
+        }
+    </script>
 
     <!-- MODAL EDITAR MÉDIA MANUAL -->
     <div class="modal" id="editAverageModal">
@@ -909,7 +1106,7 @@
         </div>
     </div>
 
-    <!-- MODAL OBSERVAÇÕES -->
+    <!-- MODAL EDITAR OBSERVAÇÕES -->
     <div class="modal" id="observationsModal">
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header">
@@ -931,8 +1128,112 @@
         </div>
     </div>
 
+    <!-- MODAL EDITAR TESTE -->
+    <div class="modal" id="editTestModal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="editTestModalTitle">Editar Teste</h2>
+                <button class="close-modal" onclick="closeEditTestModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="editTestForm">
+                    <div class="form-group">
+                        <label class="form-label">Nome do Teste</label>
+                        <input type="text" class="form-input" id="editTestName" placeholder="Ex: Teste 1, Exame Final, etc." required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Nota (0-20 valores)</label>
+                        <input type="number" class="form-input" id="editTestGrade" min="0" max="20" step="0.1" placeholder="Ex: 15.5" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Peso/Percentagem (opcional)</label>
+                        <input type="number" class="form-input" id="editTestWeight" min="0" max="100" step="0.1" placeholder="Ex: 30 (para 30%)">
+                        <div style="font-size: 12px; color: var(--cinza-medio); margin-top: 5px;">
+                            💡 Deixe vazio ou 0 para média simples. Pesos devem somar 100%.
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Ficheiro Atual</label>
+                        <div id="currentTestFile" style="padding: 10px; background: var(--cinza-claro); border-radius: 6px; font-size: 13px;"></div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Alterar Ficheiro (opcional)</label>
+                        <div class="file-upload-wrapper">
+                            <input type="file" id="editTestFile" class="file-upload-input" accept="image/*,.pdf" onchange="handleEditFileSelect(event)">
+                            <label for="editTestFile" class="file-upload-label">
+                                📎 Escolher novo ficheiro
+                            </label>
+                        </div>
+                        <div class="file-preview" id="editFilePreview"></div>
+                    </div>
+                    <div class="action-buttons">
+                        <button type="button" class="btn btn-danger" onclick="deleteTest()">🗑️ Apagar Teste</button>
+                        <button type="button" class="btn btn-secondary" onclick="closeEditTestModal()">Cancelar</button>
+                        <button type="submit" class="btn btn-success">Guardar Alterações</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL EDITAR NOME DA DISCIPLINA -->
+    <div class="modal" id="editDisciplineNameModal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Editar Nome da Disciplina</h2>
+                <button class="close-modal" onclick="closeEditDisciplineNameModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="editDisciplineNameForm">
+                    <div class="form-group">
+                        <label class="form-label">Nome da Disciplina</label>
+                        <input type="text" class="form-input" id="editDisciplineNameInput" placeholder="Ex: Física-Química" required>
+                    </div>
+                    <div class="action-buttons">
+                        <button type="button" class="btn btn-secondary" onclick="closeEditDisciplineNameModal()">Cancelar</button>
+                        <button type="submit" class="btn btn-success">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // Configurações
+        // ============================================
+        // CONFIGURAÇÃO DO FIREBASE
+        // ============================================
+        // IMPORTANTE: Substitua estas configurações pelas suas próprias!
+        // Veja as instruções no final do código para obter suas credenciais
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyCtRg8CZMXMsHQwN2d2J4_MU0-4wIFV3MM",
+            authDomain: "aesac-sistema.firebaseapp.com",
+            databaseURL: "https://aesac-sistema-default-rtdb.europe-west1.firebasedatabase.app", // URL CORRIGIDA!
+            projectId: "aesac-sistema",
+            storageBucket: "aesac-sistema.firebasestorage.app",
+            messagingSenderId: "345868295230",
+            appId: "1:345868295230:web:c960e43e46d8b049ba856f"
+        };
+
+        // Inicializar Firebase
+        let database;
+        let isFirebaseInitialized = false;
+
+        try {
+            firebase.initializeApp(firebaseConfig);
+            database = firebase.database();
+            isFirebaseInitialized = true;
+            console.log('✅ Firebase inicializado com sucesso');
+        } catch (error) {
+            console.error('❌ Erro ao inicializar Firebase:', error);
+            console.log('⚠️ Usando apenas armazenamento local');
+            alert('⚠️ ATENÇÃO: Firebase não conectado. Verifique se você ativou o Realtime Database no console do Firebase.\n\nAcesse: https://console.firebase.google.com/project/aesac-sistema/database\n\nClique em "Criar banco de dados" se ainda não criou.');
+        }
+
+        // ============================================
+        // CONFIGURAÇÕES DO SISTEMA
+        // ============================================
+        
         const CREDENTIALS = {
             username: 'admin',
             password: 'alunosaesac'
@@ -948,49 +1249,190 @@
         let currentStudent = null;
         let currentDiscipline = null;
         let currentTestFile = null;
+        let isFirstLoad = true; // Flag para primeira carga
 
-        // Carregar dados da nuvem
+        // ============================================
+        // FUNÇÕES DE ARMAZENAMENTO COM FIREBASE
+        // ============================================
+
+        // Carregar dados do Firebase
         async function loadData() {
+            if (!isFirebaseInitialized) {
+                // Fallback para localStorage
+                const saved = localStorage.getItem('aesac_students_v2');
+                if (saved) {
+                    try {
+                        students = JSON.parse(saved);
+                        console.log('📦 Dados carregados do armazenamento local');
+                    } catch (e) {
+                        console.error('Erro ao parsear dados locais:', e);
+                        students = [
+                            { id: 1, name: 'Tarina', disciplines: [] },
+                            { id: 2, name: 'Christian', disciplines: [] },
+                            { id: 3, name: 'Nayara', disciplines: [] },
+                            { id: 4, name: 'Belmira', disciplines: [] }
+                        ];
+                    }
+                } else {
+                    // Manter os alunos padrão na primeira vez
+                    console.log('👥 Usando alunos padrão');
+                    localStorage.setItem('aesac_students_v2', JSON.stringify(students));
+                }
+                updateSyncStatus('local');
+                return;
+            }
+
             try {
-                // Tentar carregar da nuvem primeiro
-                const cloudData = await window.storage.get('aesac_students_data', true);
-                if (cloudData && cloudData.value) {
-                    students = JSON.parse(cloudData.value);
-                    console.log('✅ Dados carregados da nuvem');
-                    showNotification('Dados sincronizados com sucesso!', 'success');
-                    return;
+                updateSyncStatus('syncing');
+                const snapshot = await database.ref('aesac/students').once('value');
+                
+                if (snapshot.exists()) {
+                    const firebaseData = snapshot.val();
+                    
+                    // Se vier como objeto, converter para array
+                    if (firebaseData && !Array.isArray(firebaseData)) {
+                        students = Object.values(firebaseData);
+                    } else {
+                        students = firebaseData;
+                    }
+                    
+                    // Garantir que cada aluno tem disciplines como array
+                    students = students.map(student => ({
+                        ...student,
+                        disciplines: Array.isArray(student.disciplines) ? student.disciplines : []
+                    }));
+                    
+                    // Backup local
+                    localStorage.setItem('aesac_students_v2', JSON.stringify(students));
+                    console.log('✅ Dados carregados do Firebase:', students.length, 'alunos');
+                    updateSyncStatus('synced');
+                } else {
+                    // Firebase vazio - usar dados locais ou padrão e sincronizar
+                    console.log('📤 Firebase vazio - sincronizando dados locais...');
+                    const saved = localStorage.getItem('aesac_students_v2');
+                    if (saved) {
+                        try {
+                            students = JSON.parse(saved);
+                        } catch (e) {
+                            console.error('Erro ao parsear dados:', e);
+                        }
+                    }
+                    
+                    // Garantir que cada aluno tem disciplines como array
+                    students = students.map(student => ({
+                        ...student,
+                        disciplines: Array.isArray(student.disciplines) ? student.disciplines : []
+                    }));
+                    
+                    // Fazer upload inicial para o Firebase
+                    await database.ref('aesac/students').set(students);
+                    console.log('✅ Dados iniciais enviados para Firebase');
+                    updateSyncStatus('synced');
+                    showNotification('Dados sincronizados com Firebase!', 'success');
                 }
             } catch (error) {
-                console.log('Carregando dados locais...');
-            }
-            
-            // Fallback para localStorage se nuvem não disponível
-            const saved = localStorage.getItem('aesac_students_v2');
-            if (saved) {
-                students = JSON.parse(saved);
-                // Tentar sincronizar para nuvem
-                await saveData();
+                console.error('❌ Erro ao carregar do Firebase:', error);
+                // Usar backup local
+                const saved = localStorage.getItem('aesac_students_v2');
+                if (saved) {
+                    try {
+                        students = JSON.parse(saved);
+                        console.log('📦 Usando backup local');
+                    } catch (e) {
+                        console.error('Erro ao parsear backup:', e);
+                    }
+                } else {
+                    console.log('👥 Usando alunos padrão');
+                }
+                
+                // Garantir que cada aluno tem disciplines como array
+                students = students.map(student => ({
+                    ...student,
+                    disciplines: Array.isArray(student.disciplines) ? student.disciplines : []
+                }));
+                
+                updateSyncStatus('error');
+                showNotification('Erro no Firebase. Usando dados locais.', 'error');
             }
         }
 
-        // Salvar dados na nuvem e localmente
+        // Salvar dados no Firebase
         async function saveData() {
-            const dataString = JSON.stringify(students);
+            console.log('💾 SALVANDO - Dados atuais:', JSON.stringify(students, null, 2));
             
-            // Guardar localmente como backup
-            localStorage.setItem('aesac_students_v2', dataString);
+            // Validar dados antes de salvar
+            const validStudents = students.map(student => ({
+                id: student.id,
+                name: student.name,
+                disciplines: Array.isArray(student.disciplines) ? student.disciplines : []
+            }));
             
-            // Guardar na nuvem (compartilhado entre dispositivos)
+            // Sempre salvar no localStorage como backup
+            localStorage.setItem('aesac_students_v2', JSON.stringify(validStudents));
+            console.log('✅ Salvo no localStorage');
+
+            if (!isFirebaseInitialized) {
+                console.log('⚠️ Firebase não inicializado - usando apenas localStorage');
+                updateSyncStatus('local');
+                renderStudents();
+                return;
+            }
+
             try {
-                await window.storage.set('aesac_students_data', dataString, true);
-                console.log('✅ Dados sincronizados na nuvem');
+                updateSyncStatus('syncing');
+                await database.ref('aesac/students').set(validStudents);
+                console.log('✅ Dados salvos no Firebase com sucesso');
                 updateSyncStatus('synced');
             } catch (error) {
-                console.error('❌ Erro ao sincronizar:', error);
+                console.error('❌ Erro ao salvar no Firebase:', error);
                 updateSyncStatus('error');
+                showNotification('Erro ao sincronizar. Dados salvos localmente.', 'error');
             }
-            
+
             renderStudents();
+        }
+
+        // Escutar mudanças em tempo real
+        function startRealtimeSync() {
+            if (!isFirebaseInitialized) return;
+
+            database.ref('aesac/students').on('value', (snapshot) => {
+                if (snapshot.exists()) {
+                    let newData = snapshot.val();
+                    
+                    // Se vier como objeto, converter para array
+                    if (newData && !Array.isArray(newData)) {
+                        newData = Object.values(newData);
+                    }
+                    
+                    // Garantir que cada aluno tem disciplines como array
+                    newData = newData.map(student => ({
+                        ...student,
+                        disciplines: Array.isArray(student.disciplines) ? student.disciplines : []
+                    }));
+                    
+                    const currentData = JSON.stringify(students);
+                    const firebaseData = JSON.stringify(newData);
+
+                    // Só atualizar se os dados mudaram
+                    if (currentData !== firebaseData) {
+                        students = newData;
+                        localStorage.setItem('aesac_students_v2', firebaseData);
+                        renderStudents();
+                        console.log('🔄 Dados atualizados em tempo real');
+                        showNotification('Dados sincronizados!', 'success');
+                    }
+                }
+            }, (error) => {
+                console.error('Erro no realtime sync:', error);
+            });
+        }
+
+        // Parar sincronização em tempo real
+        function stopRealtimeSync() {
+            if (isFirebaseInitialized) {
+                database.ref('aesac/students').off();
+            }
         }
 
         // Atualizar status de sincronização
@@ -1004,8 +1446,11 @@
             } else if (status === 'syncing') {
                 indicator.innerHTML = '⏳ Sincronizando...';
                 indicator.style.color = 'var(--amarelo)';
+            } else if (status === 'local') {
+                indicator.innerHTML = '💾 Apenas Local';
+                indicator.style.color = 'var(--azul-claro)';
             } else if (status === 'error') {
-                indicator.innerHTML = '⚠️ Erro ao sincronizar';
+                indicator.innerHTML = '⚠️ Erro';
                 indicator.style.color = 'var(--vermelho)';
             }
         }
@@ -1015,7 +1460,7 @@
             const notification = document.createElement('div');
             notification.style.cssText = `
                 position: fixed;
-                top: 20px;
+                top: 80px;
                 right: 20px;
                 padding: 15px 25px;
                 background: ${type === 'success' ? 'var(--verde)' : type === 'error' ? 'var(--vermelho)' : 'var(--azul-claro)'};
@@ -1046,8 +1491,16 @@
             if (username === CREDENTIALS.username && password === CREDENTIALS.password) {
                 document.getElementById('loginWrapper').style.display = 'none';
                 document.getElementById('dashboard').style.display = 'block';
+                
+                // GARANTIR que os alunos apareçam IMEDIATAMENTE
+                renderStudents();
+                
+                // Depois carregar dados salvos
                 await loadData();
                 renderStudents();
+                
+                startRealtimeSync(); // Iniciar sincronização em tempo real
+                showNotification('Login efetuado com sucesso!', 'success');
             } else {
                 document.getElementById('errorMessage').style.display = 'block';
             }
@@ -1055,6 +1508,7 @@
 
         // Logout
         function logout() {
+            stopRealtimeSync(); // Parar sincronização em tempo real
             document.getElementById('loginWrapper').style.display = 'flex';
             document.getElementById('dashboard').style.display = 'none';
             document.getElementById('username').value = '';
@@ -1065,10 +1519,31 @@
         // Renderizar alunos
         function renderStudents() {
             const grid = document.getElementById('studentsGrid');
+            
+            console.log('🔍 DEBUG - Renderizando alunos:', students);
+            console.log('🔍 DEBUG - Número de alunos:', students.length);
+            
+            if (!grid) {
+                console.error('❌ Elemento studentsGrid não encontrado!');
+                return;
+            }
+            
             grid.innerHTML = '';
 
+            if (!students || students.length === 0) {
+                console.warn('⚠️ Array de alunos vazio!');
+                grid.innerHTML = `
+                    <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--cinza-medio);">
+                        <div style="font-size: 48px; margin-bottom: 15px;">👥</div>
+                        <p style="font-size: 18px; margin-bottom: 10px;">Nenhum aluno encontrado</p>
+                        <p style="font-size: 14px;">Clique em "🔄 Restaurar Alunos" para adicionar os 4 alunos padrão</p>
+                    </div>
+                `;
+                return;
+            }
+
             students.forEach(student => {
-                const totalDisciplines = student.disciplines.length;
+                const totalDisciplines = student.disciplines ? student.disciplines.length : 0;
                 const avgGrade = calculateStudentAverage(student);
 
                 const card = document.createElement('div');
@@ -1093,11 +1568,13 @@
                 `;
                 grid.appendChild(card);
             });
+            
+            console.log('✅ Alunos renderizados com sucesso');
         }
 
         // Calcular média do aluno
         function calculateStudentAverage(student) {
-            if (student.disciplines.length === 0) return '-';
+            if (!student.disciplines || student.disciplines.length === 0) return '-';
             
             let total = 0;
             let count = 0;
@@ -1113,14 +1590,74 @@
             return count > 0 ? (total / count).toFixed(1) : '-';
         }
 
-        // Calcular média da disciplina
+        // Calcular média da disciplina com suporte a categorias
         function calculateDisciplineAverage(discipline) {
+            if (!discipline) return '-';
+            
             if (discipline.manualAverage !== null && discipline.manualAverage !== undefined) {
                 return discipline.manualAverage.toFixed(1);
             }
 
-            if (discipline.tests.length === 0) return '-';
+            if (!discipline.tests || discipline.tests.length === 0) return '-';
 
+            // Verificar se há categorias definidas
+            const hasCategories = discipline.tests.some(test => test.category && test.categoryWeight);
+            
+            if (hasCategories) {
+                // Agrupar testes por categoria
+                const categories = {};
+                
+                discipline.tests.forEach(test => {
+                    const cat = test.category || 'Sem Categoria';
+                    if (!categories[cat]) {
+                        categories[cat] = {
+                            tests: [],
+                            weight: parseFloat(test.categoryWeight) || 0
+                        };
+                    }
+                    categories[cat].tests.push(test);
+                });
+                
+                // Calcular média de cada categoria
+                let finalGrade = 0;
+                let totalCategoryWeight = 0;
+                
+                Object.values(categories).forEach(category => {
+                    if (category.tests.length > 0) {
+                        // Média dos testes dentro da categoria
+                        const categoryAvg = category.tests.reduce((sum, test) => sum + parseFloat(test.grade), 0) / category.tests.length;
+                        
+                        // Adicionar à nota final ponderada
+                        finalGrade += categoryAvg * (category.weight / 100);
+                        totalCategoryWeight += category.weight;
+                    }
+                });
+                
+                if (totalCategoryWeight > 0) {
+                    return finalGrade.toFixed(1);
+                }
+            }
+            
+            // Verificar se há pesos individuais (sistema antigo)
+            const hasWeights = discipline.tests.some(test => test.weight && test.weight > 0 && !test.category);
+            
+            if (hasWeights) {
+                // Calcular média ponderada individual
+                let totalWeighted = 0;
+                let totalWeight = 0;
+                
+                discipline.tests.forEach(test => {
+                    const weight = parseFloat(test.weight) || 0;
+                    totalWeighted += parseFloat(test.grade) * weight;
+                    totalWeight += weight;
+                });
+                
+                if (totalWeight > 0) {
+                    return (totalWeighted / totalWeight).toFixed(1);
+                }
+            }
+            
+            // Média simples (sem pesos ou categorias)
             const total = discipline.tests.reduce((sum, test) => sum + parseFloat(test.grade), 0);
             return (total / discipline.tests.length).toFixed(1);
         }
@@ -1159,6 +1696,13 @@
         function renderDisciplines() {
             const list = document.getElementById('disciplinesList');
             
+            // Garantir que disciplines existe e é um array
+            if (!currentStudent.disciplines) {
+                currentStudent.disciplines = [];
+            }
+            
+            console.log('🔍 DEBUG - Disciplinas do aluno:', currentStudent.name, currentStudent.disciplines);
+            
             if (currentStudent.disciplines.length === 0) {
                 list.innerHTML = `
                     <div class="empty-state">
@@ -1173,23 +1717,126 @@
             list.innerHTML = '';
 
             currentStudent.disciplines.forEach((disc, index) => {
+                // Garantir que disc.tests existe
+                if (!disc.tests) {
+                    disc.tests = [];
+                }
+                
                 const avg = calculateDisciplineAverage(disc);
                 const item = document.createElement('div');
                 item.className = 'discipline-item';
 
                 let testsHTML = '';
                 if (disc.tests.length > 0) {
-                    testsHTML = '<div class="tests-grid">';
-                    disc.tests.forEach(test => {
-                        testsHTML += `
-                            <div class="test-card">
-                                <div class="test-name">${test.name}</div>
-                                <div class="test-grade">${test.grade}</div>
-                                ${test.fileName ? `<div class="test-file"><a href="${test.fileData}" download="${test.fileName}">📄 ${test.fileName}</a></div>` : ''}
-                            </div>
-                        `;
-                    });
-                    testsHTML += '</div>';
+                    // Verificar se usa categorias
+                    const hasCategories = disc.tests.some(test => test.category && test.categoryWeight);
+                    
+                    if (hasCategories) {
+                        // Agrupar por categoria
+                        const categories = {};
+                        disc.tests.forEach((test, testIndex) => {
+                            const cat = test.category || 'Sem Categoria';
+                            if (!categories[cat]) {
+                                categories[cat] = {
+                                    tests: [],
+                                    weight: test.categoryWeight || 0
+                                };
+                            }
+                            categories[cat].tests.push({ ...test, originalIndex: testIndex });
+                        });
+                        
+                        // Renderizar por categoria
+                        testsHTML = '<div style="display: flex; flex-direction: column; gap: 20px;">';
+                        
+                        let totalCategoryWeight = 0;
+                        Object.entries(categories).forEach(([catName, catData]) => {
+                            const catAvg = catData.tests.reduce((sum, t) => sum + parseFloat(t.grade), 0) / catData.tests.length;
+                            totalCategoryWeight += catData.weight;
+                            
+                            testsHTML += `
+                                <div style="background: white; border-left: 4px solid var(--azul-claro); border-radius: 8px; padding: 15px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                        <div>
+                                            <div style="font-family: 'Poppins', sans-serif; font-weight: 600; color: var(--azul-institucional); font-size: 16px;">
+                                                ${catName}
+                                            </div>
+                                            <div style="font-size: 12px; color: var(--cinza-medio); margin-top: 3px;">
+                                                Média da categoria: ${catAvg.toFixed(1)} valores
+                                            </div>
+                                        </div>
+                                        <div style="background: var(--azul-claro); color: white; padding: 6px 14px; border-radius: 20px; font-weight: 600; font-size: 13px;">
+                                            ${catData.weight}%
+                                        </div>
+                                    </div>
+                                    <div class="tests-grid">
+                            `;
+                            
+                            catData.tests.forEach(test => {
+                                testsHTML += `
+                                    <div class="test-card">
+                                        <div class="test-name">${test.name}</div>
+                                        <div class="test-grade">${test.grade}</div>
+                                        ${test.fileName ? `<div class="test-file"><a href="${test.fileData}" download="${test.fileName}">📄 ${test.fileName}</a></div>` : ''}
+                                        <button class="btn btn-secondary btn-sm" style="width: 100%; margin-top: 8px; font-size: 12px; padding: 6px;" onclick="editTest(${index}, ${test.originalIndex})">✏️ Editar</button>
+                                    </div>
+                                `;
+                            });
+                            
+                            testsHTML += '</div></div>';
+                        });
+                        
+                        testsHTML += '</div>';
+                        
+                        // Mostrar aviso se categorias não somam 100%
+                        if (Math.abs(totalCategoryWeight - 100) > 0.1) {
+                            testsHTML += `
+                                <div style="background: #fff3cd; padding: 12px; border-radius: 6px; margin-top: 15px; font-size: 13px; color: #92400e;">
+                                    ⚠️ Soma dos pesos das categorias: ${totalCategoryWeight.toFixed(1)}% (deveria ser 100%)
+                                </div>
+                            `;
+                        } else {
+                            testsHTML += `
+                                <div style="background: #d4edda; padding: 12px; border-radius: 6px; margin-top: 15px; font-size: 13px; color: #155724;">
+                                    ✅ Sistema de categorias ativo - Total: ${totalCategoryWeight.toFixed(1)}%
+                                </div>
+                            `;
+                        }
+                    } else {
+                        // Renderização normal (sem categorias)
+                        testsHTML = '<div class="tests-grid">';
+                        disc.tests.forEach((test, testIndex) => {
+                            const weight = test.weight || 0;
+                            testsHTML += `
+                                <div class="test-card">
+                                    <div class="test-name">${test.name}</div>
+                                    <div class="test-grade">${test.grade}</div>
+                                    ${weight > 0 ? `<div style="font-size: 12px; color: var(--azul-claro); margin-top: 5px; font-weight: 600;">Peso: ${weight}%</div>` : ''}
+                                    ${test.fileName ? `<div class="test-file"><a href="${test.fileData}" download="${test.fileName}">📄 ${test.fileName}</a></div>` : ''}
+                                    <button class="btn btn-secondary btn-sm" style="width: 100%; margin-top: 8px; font-size: 12px; padding: 6px;" onclick="editTest(${index}, ${testIndex})">✏️ Editar</button>
+                                </div>
+                            `;
+                        });
+                        testsHTML += '</div>';
+                        
+                        // Mostrar aviso de pesos individuais
+                        const hasWeights = disc.tests.some(t => t.weight && t.weight > 0);
+                        if (hasWeights) {
+                            let totalWeight = disc.tests.reduce((sum, t) => sum + (parseFloat(t.weight) || 0), 0);
+                            if (Math.abs(totalWeight - 100) > 0.1) {
+                                testsHTML += `
+                                    <div style="background: #fff3cd; padding: 10px; border-radius: 6px; margin-top: 15px; font-size: 13px; color: #92400e;">
+                                        ⚠️ Soma dos pesos: ${totalWeight.toFixed(1)}% (deveria ser 100%)
+                                    </div>
+                                `;
+                            } else {
+                                testsHTML += `
+                                    <div style="background: #d4edda; padding: 10px; border-radius: 6px; margin-top: 15px; font-size: 13px; color: #155724;">
+                                        ✅ Média ponderada ativa - Pesos: ${totalWeight.toFixed(1)}%
+                                    </div>
+                                `;
+                            }
+                        }
+                    }
                 } else if (!disc.manualAverage) {
                     testsHTML = '<div style="text-align:center; color: var(--cinza-medio); padding: 20px; font-size: 14px;">Nenhum teste adicionado</div>';
                 }
@@ -1214,6 +1861,7 @@
                     ${obsHTML}
                     <div class="action-buttons">
                         <button class="btn btn-info btn-sm" onclick="addTest(${index})">+ Adicionar Teste</button>
+                        <button class="btn btn-secondary btn-sm" onclick="editDisciplineName(${index})">✏️ Editar Nome</button>
                         <button class="btn btn-warning btn-sm" onclick="editManualAverage(${index})">✏️ Média Manual</button>
                         <button class="btn btn-secondary btn-sm" onclick="editObservations(${index})">📝 Observações</button>
                         <button class="btn btn-danger btn-sm" onclick="deleteDiscipline(${index})">🗑️ Remover</button>
@@ -1221,6 +1869,8 @@
                 `;
                 list.appendChild(item);
             });
+            
+            console.log('✅ Disciplinas renderizadas:', currentStudent.disciplines.length);
         }
 
         // Renderizar resumo geral
@@ -1291,16 +1941,32 @@
             e.preventDefault();
             const name = document.getElementById('disciplineName').value.trim();
             
-            currentStudent.disciplines.push({
+            console.log('➕ Adicionando disciplina:', name);
+            console.log('📊 Aluno atual:', currentStudent.name);
+            console.log('📚 Disciplinas antes:', currentStudent.disciplines);
+            
+            const newDiscipline = {
                 name: name,
                 tests: [],
                 observations: '',
                 manualAverage: null
-            });
+            };
+            
+            currentStudent.disciplines.push(newDiscipline);
+            
+            console.log('📚 Disciplinas depois:', currentStudent.disciplines);
+            console.log('💾 Salvando dados...');
 
             await saveData();
+            
+            console.log('✅ Disciplina adicionada e salva');
             renderDisciplines();
             closeAddDisciplineModal();
+            
+            // Verificar se salvou corretamente
+            setTimeout(() => {
+                console.log('🔍 Verificação - Disciplinas atuais:', currentStudent.disciplines);
+            }, 1000);
         });
 
         // Remover disciplina
@@ -1348,13 +2014,30 @@
             e.preventDefault();
             const testName = document.getElementById('testName').value.trim();
             const testGrade = parseFloat(document.getElementById('testGrade').value);
-
-            const test = {
+            
+            const weightType = document.querySelector('input[name="weightType"]:checked').value;
+            
+            let test = {
                 name: testName,
                 grade: testGrade,
                 fileName: currentTestFile ? currentTestFile.name : null,
                 fileData: currentTestFile ? currentTestFile.data : null
             };
+            
+            if (weightType === 'category') {
+                test.category = document.getElementById('testCategory').value.trim() || 'Avaliações';
+                test.categoryWeight = parseFloat(document.getElementById('testCategoryWeight').value) || 0;
+                test.weight = 0; // Limpar peso individual
+            } else if (weightType === 'individual') {
+                test.weight = parseFloat(document.getElementById('testWeight').value) || 0;
+                test.category = null;
+                test.categoryWeight = 0;
+            } else {
+                // Média simples
+                test.weight = 0;
+                test.category = null;
+                test.categoryWeight = 0;
+            }
 
             currentStudent.disciplines[currentDiscipline].tests.push(test);
             // Limpar média manual se adicionar teste
@@ -1363,6 +2046,116 @@
             await saveData();
             renderDisciplines();
             closeAddTestModal();
+        });
+
+        // Editar teste existente
+        let currentEditTestIndex = null;
+
+        function editTest(disciplineIndex, testIndex) {
+            currentDiscipline = disciplineIndex;
+            currentEditTestIndex = testIndex;
+            
+            const test = currentStudent.disciplines[disciplineIndex].tests[testIndex];
+            
+            document.getElementById('editTestModalTitle').textContent = `Editar: ${test.name}`;
+            document.getElementById('editTestName').value = test.name;
+            document.getElementById('editTestGrade').value = test.grade;
+            document.getElementById('editTestWeight').value = test.weight || '';
+            
+            // Mostrar ficheiro atual
+            const currentFileDiv = document.getElementById('currentTestFile');
+            if (test.fileName) {
+                currentFileDiv.innerHTML = `📄 ${test.fileName} <a href="${test.fileData}" download="${test.fileName}" style="color: var(--azul-claro); margin-left: 10px;">⬇️ Download</a>`;
+            } else {
+                currentFileDiv.innerHTML = 'Nenhum ficheiro anexado';
+            }
+            
+            document.getElementById('editTestModal').classList.add('active');
+        }
+
+        function closeEditTestModal() {
+            document.getElementById('editTestModal').classList.remove('active');
+            document.getElementById('editTestForm').reset();
+            document.getElementById('editFilePreview').classList.remove('active');
+            document.getElementById('editFilePreview').innerHTML = '';
+            currentTestFile = null;
+            currentEditTestIndex = null;
+        }
+
+        function handleEditFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    currentTestFile = {
+                        name: file.name,
+                        data: e.target.result
+                    };
+                    document.getElementById('editFilePreview').innerHTML = `📄 ${file.name}`;
+                    document.getElementById('editFilePreview').classList.add('active');
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        document.getElementById('editTestForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const test = currentStudent.disciplines[currentDiscipline].tests[currentEditTestIndex];
+            
+            test.name = document.getElementById('editTestName').value.trim();
+            test.grade = parseFloat(document.getElementById('editTestGrade').value);
+            test.weight = parseFloat(document.getElementById('editTestWeight').value) || 0;
+            
+            // Atualizar ficheiro se foi selecionado novo
+            if (currentTestFile) {
+                test.fileName = currentTestFile.name;
+                test.fileData = currentTestFile.data;
+            }
+            
+            await saveData();
+            renderDisciplines();
+            closeEditTestModal();
+            showNotification('Teste atualizado com sucesso!', 'success');
+        });
+
+        async function deleteTest() {
+            if (confirm('Tem certeza que deseja apagar este teste?')) {
+                currentStudent.disciplines[currentDiscipline].tests.splice(currentEditTestIndex, 1);
+                await saveData();
+                renderDisciplines();
+                closeEditTestModal();
+                showNotification('Teste apagado!', 'success');
+            }
+        }
+
+        // Editar nome da disciplina
+        let currentEditDisciplineIndex = null;
+
+        function editDisciplineName(disciplineIndex) {
+            currentEditDisciplineIndex = disciplineIndex;
+            const discipline = currentStudent.disciplines[disciplineIndex];
+            
+            document.getElementById('editDisciplineNameInput').value = discipline.name;
+            document.getElementById('editDisciplineNameModal').classList.add('active');
+        }
+
+        function closeEditDisciplineNameModal() {
+            document.getElementById('editDisciplineNameModal').classList.remove('active');
+            document.getElementById('editDisciplineNameForm').reset();
+            currentEditDisciplineIndex = null;
+        }
+
+        document.getElementById('editDisciplineNameForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const newName = document.getElementById('editDisciplineNameInput').value.trim();
+            currentStudent.disciplines[currentEditDisciplineIndex].name = newName;
+            
+            await saveData();
+            renderDisciplines();
+            closeEditDisciplineNameModal();
+            showNotification('Nome da disciplina atualizado!', 'success');
         });
 
         // Editar média manual
@@ -1416,12 +2209,15 @@
         // Sincronizar dados manualmente
         async function syncData() {
             updateSyncStatus('syncing');
+            showNotification('Sincronizando...', 'info');
+            
             try {
                 await saveData();
                 await loadData();
-                showNotification('Dados sincronizados com sucesso!', 'success');
+                showNotification('Sincronizado com sucesso!', 'success');
             } catch (error) {
-                showNotification('Erro ao sincronizar dados', 'error');
+                console.error('Erro na sincronização:', error);
+                showNotification('Erro ao sincronizar', 'error');
                 updateSyncStatus('error');
             }
         }
@@ -1453,6 +2249,65 @@
         
         // Não carregar automaticamente - apenas após login
         // init();
+        
+        /*
+        ============================================
+        INSTRUÇÕES PARA CONFIGURAR SEU PRÓPRIO FIREBASE
+        ============================================
+        
+        Para que a sincronização funcione no seu site, você precisa criar seu próprio projeto Firebase:
+        
+        PASSO 1 - Criar conta Firebase (GRÁTIS):
+        1. Acesse: https://console.firebase.google.com/
+        2. Faça login com sua conta Google
+        3. Clique em "Adicionar projeto"
+        4. Nome do projeto: "AESAC-Sistema" (ou o nome que preferir)
+        5. Desative o Google Analytics (não é necessário)
+        6. Clique em "Criar projeto"
+        
+        PASSO 2 - Configurar Realtime Database:
+        1. No menu lateral, clique em "Realtime Database"
+        2. Clique em "Criar banco de dados"
+        3. Escolha a localização: "United States (us-central1)" ou mais próxima
+        4. Modo de segurança: Escolha "Modo de teste" (por enquanto)
+        5. Clique em "Ativar"
+        
+        PASSO 3 - Configurar Regras de Segurança:
+        1. Na aba "Regras", substitua por:
+        
+        {
+          "rules": {
+            "aesac": {
+              ".read": true,
+              ".write": true
+            }
+          }
+        }
+        
+        2. Clique em "Publicar"
+        
+        PASSO 4 - Obter suas credenciais:
+        1. Clique no ícone de engrenagem ⚙️ ao lado de "Visão geral do projeto"
+        2. Clique em "Configurações do projeto"
+        3. Role até "Seus apps" e clique no ícone "</>" (Web)
+        4. Nome do app: "AESAC Web"
+        5. Clique em "Registrar app"
+        6. COPIE o objeto firebaseConfig que aparece
+        
+        PASSO 5 - Substituir configurações neste arquivo:
+        1. Encontre a seção "CONFIGURAÇÃO DO FIREBASE" no início do código JavaScript
+        2. Substitua o objeto firebaseConfig pelas suas credenciais
+        3. Salve o arquivo
+        
+        PRONTO! Agora seu sistema terá sincronização em tempo real funcionando!
+        
+        DICA DE SEGURANÇA:
+        - Depois de testar, configure regras mais seguras no Firebase
+        - Adicione autenticação se quiser mais segurança
+        - Faça backup dos dados regularmente usando o botão "Exportar"
+        
+        ============================================
+        */
     </script>
 </body>
 </html>
