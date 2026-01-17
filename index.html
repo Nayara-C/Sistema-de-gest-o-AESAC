@@ -11,6 +11,9 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
     
+    <!-- EmailJS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
@@ -844,6 +847,145 @@
                 display: none; /* Ocultar info do usuário em mobile para economizar espaço */
             }
         }
+
+        /* CALENDÁRIO VISUAL */
+        .calendar-view-container {
+            background: var(--branco);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .calendar-view-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .calendar-view-month {
+            font-family: 'Poppins', sans-serif;
+            font-size: 22px;
+            font-weight: 600;
+            color: var(--azul-institucional);
+        }
+
+        .calendar-view-nav {
+            display: flex;
+            gap: 10px;
+        }
+
+        .calendar-view-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+        }
+
+        .calendar-view-day-header {
+            text-align: center;
+            font-weight: 600;
+            color: var(--cinza-medio);
+            padding: 10px 5px;
+            font-size: 13px;
+            background: var(--cinza-claro);
+            border-radius: 6px;
+        }
+
+        .calendar-view-day {
+            min-height: 90px;
+            border: 2px solid var(--cinza-claro);
+            border-radius: 8px;
+            padding: 8px;
+            background: var(--branco);
+            transition: all 0.3s;
+        }
+
+        .calendar-view-day:hover {
+            border-color: var(--azul-claro);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .calendar-view-day.today {
+            border-color: var(--azul-institucional);
+            background: rgba(31, 78, 121, 0.05);
+            border-width: 3px;
+        }
+
+        .calendar-view-day.other-month {
+            opacity: 0.4;
+            background: #fafafa;
+        }
+
+        .calendar-view-day-number {
+            font-weight: 700;
+            color: var(--azul-institucional);
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+
+        .calendar-view-tests {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .calendar-view-test-item {
+            font-size: 10px;
+            padding: 4px 6px;
+            border-radius: 4px;
+            background: var(--azul-claro);
+            color: white;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .calendar-view-test-item:hover {
+            transform: scale(1.05);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .calendar-view-test-item.priority-high {
+            background: var(--vermelho);
+        }
+
+        .calendar-view-test-item.priority-medium {
+            background: var(--amarelo);
+            color: var(--azul-institucional);
+        }
+
+        .calendar-view-test-item.priority-low {
+            background: var(--verde);
+        }
+
+        @media (max-width: 768px) {
+            .calendar-view-grid {
+                gap: 4px;
+            }
+
+            .calendar-view-day {
+                min-height: 70px;
+                padding: 5px;
+            }
+
+            .calendar-view-day-number {
+                font-size: 12px;
+            }
+
+            .calendar-view-test-item {
+                font-size: 9px;
+                padding: 3px 5px;
+            }
+
+            .calendar-view-month {
+                font-size: 18px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -893,10 +1035,22 @@
             </div>
         </div>
 
-        <div class="dashboard-body">
+        <!-- TABS PRINCIPAIS -->
+        <div style="background: var(--branco); border-bottom: 2px solid var(--cinza-claro); padding: 0 40px;">
+            <div class="tabs">
+                <button class="tab active" onclick="switchMainTab('students')">👥 Alunos</button>
+                <button class="tab" onclick="switchMainTab('allCalendar')">📅 Calendário Geral</button>
+            </div>
+        </div>
+
+        <!-- TAB ALUNOS -->
+        <div class="dashboard-body" id="studentsMainTab">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px;">
                 <h2 style="color: var(--azul-institucional); font-size: 20px; font-family: 'Poppins', sans-serif; font-weight: 600;">Gestão de Alunos</h2>
                 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn btn-warning btn-sm" onclick="sendPendingReminders()" id="pendingRemindersBtn" style="display: none;">
+                        📧 Enviar Lembretes Pendentes (<span id="pendingCount">0</span>)
+                    </button>
                     <button class="btn btn-info btn-sm" onclick="syncData()">
                         🔄 Sincronizar
                     </button>
@@ -906,6 +1060,48 @@
                 </div>
             </div>
             <div class="students-grid" id="studentsGrid"></div>
+        </div>
+
+        <!-- TAB CALENDÁRIO GERAL -->
+        <div class="dashboard-body" id="allCalendarMainTab" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px;">
+                <h2 style="color: var(--azul-institucional); font-size: 20px; font-family: 'Poppins', sans-serif; font-weight: 600;">📅 Calendário Geral de Testes - Todos os Alunos</h2>
+            </div>
+            
+            <div class="calendar-view-container">
+                <div class="calendar-view-header">
+                    <h3 class="calendar-view-month" id="allCalendarMonth">Janeiro 2026</h3>
+                    <div class="calendar-view-nav">
+                        <button class="btn btn-secondary btn-sm" onclick="previousAllCalendarMonth()">◀ Anterior</button>
+                        <button class="btn btn-info btn-sm" onclick="todayAllCalendarMonth()">Hoje</button>
+                        <button class="btn btn-secondary btn-sm" onclick="nextAllCalendarMonth()">Próximo ▶</button>
+                    </div>
+                </div>
+                <div class="calendar-view-grid" id="allCalendarGrid"></div>
+            </div>
+
+            <!-- Legenda -->
+            <div style="margin-top: 30px; background: var(--branco); padding: 20px; border-radius: 12px;">
+                <h3 style="font-family: 'Poppins', sans-serif; font-size: 16px; margin-bottom: 15px; color: var(--azul-institucional);">📊 Legenda por Aluno</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="width: 20px; height: 20px; border-radius: 50%; background: #546E7A;"></div>
+                        <span style="font-weight: 600;">Tarina</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="width: 20px; height: 20px; border-radius: 50%; background: #455A64;"></div>
+                        <span style="font-weight: 600;">Christian</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="width: 20px; height: 20px; border-radius: 50%; background: #78909C;"></div>
+                        <span style="font-weight: 600;">Nayara</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="width: 20px; height: 20px; border-radius: 50%; background: #90A4AE;"></div>
+                        <span style="font-weight: 600;">Belmira</span>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -920,6 +1116,8 @@
                 <div class="tabs">
                     <button class="tab active" onclick="switchTab('disciplines')">📖 Disciplinas</button>
                     <button class="tab" onclick="switchTab('overview')">📊 Resumo Geral</button>
+                    <button class="tab" onclick="switchTab('calendar')">📅 Calendário</button>
+                    <button class="tab" onclick="switchTab('calendarView')">🗓️ Vista Mensal</button>
                 </div>
 
                 <!-- TAB DISCIPLINAS -->
@@ -937,6 +1135,87 @@
                 <div class="tab-content" id="overviewTab">
                     <div id="overviewContent"></div>
                 </div>
+
+                <!-- TAB CALENDÁRIO -->
+                <div class="tab-content" id="calendarTab">
+                    <div class="section">
+                        <div style="margin-bottom: 20px;">
+                            <button class="btn btn-success btn-sm" onclick="addCalendarTest()">+ Adicionar Teste ao Calendário</button>
+                        </div>
+                        
+                        <div style="background: var(--branco); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                            <h3 style="font-family: 'Poppins', sans-serif; font-size: 16px; margin-bottom: 15px; color: var(--azul-institucional);">📅 Próximos Testes</h3>
+                            <div id="calendarTestsList"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB VISTA MENSAL (CALENDÁRIO VISUAL) -->
+                <div class="tab-content" id="calendarViewTab">
+                    <div class="section">
+                        <div class="calendar-view-container">
+                            <div class="calendar-view-header">
+                                <h3 class="calendar-view-month" id="calendarViewMonth">Janeiro 2026</h3>
+                                <div class="calendar-view-nav">
+                                    <button class="btn btn-secondary btn-sm" onclick="previousMonthView()">◀ Anterior</button>
+                                    <button class="btn btn-info btn-sm" onclick="todayMonthView()">Hoje</button>
+                                    <button class="btn btn-secondary btn-sm" onclick="nextMonthView()">Próximo ▶</button>
+                                </div>
+                            </div>
+                            <div class="calendar-view-grid" id="calendarViewGrid"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL ADICIONAR TESTE AO CALENDÁRIO -->
+    <div class="modal" id="calendarTestModal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Adicionar Teste ao Calendário</h2>
+                <button class="close-modal" onclick="closeCalendarTestModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="calendarTestForm">
+                    <div class="form-group">
+                        <label class="form-label">Disciplina</label>
+                        <input type="text" class="form-input" id="calTestSubject" placeholder="Ex: Matemática" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Tópico/Matéria</label>
+                        <input type="text" class="form-input" id="calTestTopic" placeholder="Ex: Funções Quadráticas">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Data do Teste</label>
+                        <input type="date" class="form-input" id="calTestDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Hora</label>
+                        <input type="time" class="form-input" id="calTestTime" value="09:00">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Duração</label>
+                        <input type="text" class="form-input" id="calTestDuration" placeholder="Ex: 90 min">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Prioridade</label>
+                        <select class="form-select" id="calTestPriority">
+                            <option value="low">Baixa</option>
+                            <option value="medium" selected>Média</option>
+                            <option value="high">Alta</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Notas de Estudo</label>
+                        <textarea class="form-textarea" id="calTestNotes" placeholder="Matéria a estudar, páginas, exercícios..." rows="4"></textarea>
+                    </div>
+                    <div class="action-buttons">
+                        <button type="button" class="btn btn-secondary" onclick="closeCalendarTestModal()">Cancelar</button>
+                        <button type="submit" class="btn btn-success">Guardar Teste</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -1001,9 +1280,15 @@
                         <div id="categoryFields" style="margin-left: 30px; margin-bottom: 15px;">
                             <div class="form-group" style="margin-bottom: 10px;">
                                 <label class="form-label">Tipo/Categoria</label>
-                                <input type="text" class="form-input" id="testCategory" placeholder="Ex: Testes, Fichas, Trabalhos, Exame">
+                                <div style="display: flex; gap: 8px;">
+                                    <select class="form-select" id="testCategorySelect" style="flex: 1;" onchange="fillCategoryData()">
+                                        <option value="">-- Selecione categoria existente --</option>
+                                    </select>
+                                    <button type="button" class="btn btn-info btn-sm" onclick="showNewCategoryFields()" style="white-space: nowrap;">➕ Nova</button>
+                                </div>
+                                <input type="text" class="form-input" id="testCategory" placeholder="Ou digite nova categoria" style="margin-top: 8px; display: none;">
                                 <div style="font-size: 11px; color: var(--cinza-medio); margin-top: 3px;">
-                                    💡 Todas as avaliações da mesma categoria terão média calculada juntas
+                                    💡 Selecione categoria existente ou crie nova
                                 </div>
                             </div>
                             <div class="form-group" style="margin-bottom: 0;">
@@ -1076,6 +1361,71 @@
             
             categoryFields.style.display = useCategory ? 'block' : 'none';
             individualField.style.display = useIndividual ? 'block' : 'none';
+            
+            if (useCategory) {
+                populateCategoryDropdown();
+            }
+        }
+        
+        // Popular dropdown com categorias existentes da disciplina
+        function populateCategoryDropdown() {
+            if (!currentStudent || currentDiscipline === null) return;
+            
+            const disc = currentStudent.disciplines[currentDiscipline];
+            if (!disc || !disc.tests) return;
+            
+            const select = document.getElementById('testCategorySelect');
+            const existingCategories = new Set();
+            
+            // Coletar todas categorias únicas
+            disc.tests.forEach(test => {
+                if (test.category && test.categoryWeight) {
+                    existingCategories.add(JSON.stringify({
+                        name: test.category,
+                        weight: test.categoryWeight
+                    }));
+                }
+            });
+            
+            // Limpar e repopular
+            select.innerHTML = '<option value="">-- Selecione categoria existente --</option>';
+            
+            existingCategories.forEach(catStr => {
+                const cat = JSON.parse(catStr);
+                const option = document.createElement('option');
+                option.value = catStr;
+                option.textContent = `${cat.name} (${cat.weight}%)`;
+                select.appendChild(option);
+            });
+        }
+        
+        // Preencher dados ao selecionar categoria
+        function fillCategoryData() {
+            const select = document.getElementById('testCategorySelect');
+            const categoryInput = document.getElementById('testCategory');
+            const weightInput = document.getElementById('testCategoryWeight');
+            
+            if (select.value) {
+                const cat = JSON.parse(select.value);
+                categoryInput.value = cat.name;
+                weightInput.value = cat.weight;
+                categoryInput.style.display = 'none';
+            } else {
+                categoryInput.value = '';
+                weightInput.value = '';
+            }
+        }
+        
+        // Mostrar campo para nova categoria
+        function showNewCategoryFields() {
+            const select = document.getElementById('testCategorySelect');
+            const categoryInput = document.getElementById('testCategory');
+            const weightInput = document.getElementById('testCategoryWeight');
+            
+            select.value = '';
+            categoryInput.style.display = 'block';
+            categoryInput.focus();
+            weightInput.value = '';
         }
     </script>
 
@@ -1240,16 +1590,65 @@
         };
 
         let students = [
-            { id: 1, name: 'Tarina', disciplines: [] },
-            { id: 2, name: 'Christian', disciplines: [] },
-            { id: 3, name: 'Nayara', disciplines: [] },
-            { id: 4, name: 'Belmira', disciplines: [] }
+            { 
+                id: 1, 
+                name: 'Tarina', 
+                disciplines: [],
+                email: 'tarinamaria70@gmail.com',
+                parentEmail: 'paulo.deborja@gmail.com, uzia25@hotmail.com',
+                color: '#546E7A', // Cinza-azulado (neutro)
+                grade: 11
+            },
+            { 
+                id: 2, 
+                name: 'Christian', 
+                disciplines: [],
+                email: 'chrisitz232009@gmail.com',
+                parentEmail: 'paulo.deborja@gmail.com, uzia25@hotmail.com',
+                color: '#455A64', // Cinza escuro-azulado
+                grade: 11
+            },
+            { 
+                id: 3, 
+                name: 'Nayara', 
+                disciplines: [],
+                email: 'nayaracassama2020@gmail.com',
+                parentEmail: 'paulo.deborja@gmail.com, uzia25@hotmail.com',
+                color: '#78909C', // Cinza-azul claro
+                grade: 10
+            },
+            { 
+                id: 4, 
+                name: 'Belmira', 
+                disciplines: [],
+                email: 'belmiracassama@gmail.com',
+                parentEmail: 'paulo.deborja@gmail.com, uzia25@hotmail.com',
+                color: '#90A4AE', // Cinza-azul muito claro
+                grade: 6
+            }
         ];
 
         let currentStudent = null;
         let currentDiscipline = null;
         let currentTestFile = null;
-        let isFirstLoad = true; // Flag para primeira carga
+        let isFirstLoad = true;
+        
+        // Variáveis do calendário
+        let calendarTests = [];
+        let currentEditCalendarTest = null;
+        
+        // Configuração EmailJS ATUALIZADA
+        const EMAILJS_CONFIG = {
+            publicKey: 'LIjHa6AUwkQwCWDNy',
+            serviceId: 'service_0u4sp8g',
+            templateId: 'template_aqp0kid'
+        };
+        
+        // Inicializar EmailJS
+        if (typeof emailjs !== 'undefined') {
+            emailjs.init(EMAILJS_CONFIG.publicKey);
+            console.log('✅ EmailJS inicializado');
+        }
 
         // ============================================
         // FUNÇÕES DE ARMAZENAMENTO COM FIREBASE
@@ -1282,9 +1681,25 @@
                 return;
             }
 
+            // Verificar se database existe
+            if (!database || typeof database.ref !== 'function') {
+                console.error('❌ Firebase database não disponível');
+                const saved = localStorage.getItem('aesac_students_v2');
+                if (saved) {
+                    try {
+                        students = JSON.parse(saved);
+                    } catch (e) {
+                        console.error('Erro ao parsear:', e);
+                    }
+                }
+                updateSyncStatus('local');
+                return;
+            }
+
             try {
                 updateSyncStatus('syncing');
-                const snapshot = await database.ref('aesac/students').once('value');
+                const dbRef = database.ref('aesac/students');
+                const snapshot = await dbRef.once('value');
                 
                 if (snapshot.exists()) {
                     const firebaseData = snapshot.val();
@@ -1296,16 +1711,38 @@
                         students = firebaseData;
                     }
                     
-                    // Garantir que cada aluno tem disciplines como array
+                    // Emails padrão dos alunos
+                    const defaultEmails = {
+                        'Tarina': 'tarinamaria70@gmail.com',
+                        'Christian': 'chrisitz232009@gmail.com',
+                        'Nayara': 'nayaracassama2020@gmail.com',
+                        'Belmira': 'belmiracassama@gmail.com'
+                    };
+                    
+                    const defaultColors = {
+                        'Tarina': '#546E7A',
+                        'Christian': '#455A64',
+                        'Nayara': '#78909C',
+                        'Belmira': '#90A4AE'
+                    };
+                    
+                    // Garantir que cada aluno tem email, cor, parentEmail e disciplines
                     students = students.map(student => ({
                         ...student,
-                        disciplines: Array.isArray(student.disciplines) ? student.disciplines : []
+                        disciplines: Array.isArray(student.disciplines) ? student.disciplines : [],
+                        email: student.email || defaultEmails[student.name] || '',
+                        color: student.color || defaultColors[student.name] || '#546E7A',
+                        parentEmail: student.parentEmail || 'paulo.deborja@gmail.com, uzia25@hotmail.com'
                     }));
                     
                     // Backup local
                     localStorage.setItem('aesac_students_v2', JSON.stringify(students));
                     console.log('✅ Dados carregados do Firebase:', students.length, 'alunos');
+                    console.log('📧 Emails dos alunos:', students.map(s => `${s.name}: ${s.email}`));
                     updateSyncStatus('synced');
+                    
+                    // IMPORTANTE: Salvar de volta no Firebase com emails
+                    await saveData();
                 } else {
                     // Firebase vazio - usar dados locais ou padrão e sincronizar
                     console.log('📤 Firebase vazio - sincronizando dados locais...');
@@ -1325,13 +1762,19 @@
                     }));
                     
                     // Fazer upload inicial para o Firebase
-                    await database.ref('aesac/students').set(students);
-                    console.log('✅ Dados iniciais enviados para Firebase');
-                    updateSyncStatus('synced');
-                    showNotification('Dados sincronizados com Firebase!', 'success');
+                    try {
+                        await dbRef.set(students);
+                        console.log('✅ Dados iniciais enviados para Firebase');
+                        updateSyncStatus('synced');
+                        showNotification('Dados sincronizados com Firebase!', 'success');
+                    } catch (uploadError) {
+                        console.error('Erro ao fazer upload inicial:', uploadError);
+                        updateSyncStatus('local');
+                    }
                 }
             } catch (error) {
                 console.error('❌ Erro ao carregar do Firebase:', error);
+                console.error('Detalhes:', error.message);
                 // Usar backup local
                 const saved = localStorage.getItem('aesac_students_v2');
                 if (saved) {
@@ -1351,8 +1794,7 @@
                     disciplines: Array.isArray(student.disciplines) ? student.disciplines : []
                 }));
                 
-                updateSyncStatus('error');
-                showNotification('Erro no Firebase. Usando dados locais.', 'error');
+                updateSyncStatus('local');
             }
         }
 
@@ -1378,15 +1820,25 @@
                 return;
             }
 
+            // Verificar se database existe
+            if (!database || typeof database.ref !== 'function') {
+                console.error('❌ Firebase database não disponível');
+                updateSyncStatus('local');
+                renderStudents();
+                return;
+            }
+
             try {
                 updateSyncStatus('syncing');
-                await database.ref('aesac/students').set(validStudents);
+                const dbRef = database.ref('aesac/students');
+                await dbRef.set(validStudents);
                 console.log('✅ Dados salvos no Firebase com sucesso');
                 updateSyncStatus('synced');
             } catch (error) {
                 console.error('❌ Erro ao salvar no Firebase:', error);
-                updateSyncStatus('error');
-                showNotification('Erro ao sincronizar. Dados salvos localmente.', 'error');
+                console.error('Detalhes do erro:', error.message);
+                updateSyncStatus('local');
+                // Não mostrar erro se estiver funcionando localmente
             }
 
             renderStudents();
@@ -1394,38 +1846,55 @@
 
         // Escutar mudanças em tempo real
         function startRealtimeSync() {
-            if (!isFirebaseInitialized) return;
+            if (!isFirebaseInitialized) {
+                console.log('⚠️ Firebase não inicializado - sync em tempo real desativado');
+                return;
+            }
 
-            database.ref('aesac/students').on('value', (snapshot) => {
-                if (snapshot.exists()) {
-                    let newData = snapshot.val();
-                    
-                    // Se vier como objeto, converter para array
-                    if (newData && !Array.isArray(newData)) {
-                        newData = Object.values(newData);
-                    }
-                    
-                    // Garantir que cada aluno tem disciplines como array
-                    newData = newData.map(student => ({
-                        ...student,
-                        disciplines: Array.isArray(student.disciplines) ? student.disciplines : []
-                    }));
-                    
-                    const currentData = JSON.stringify(students);
-                    const firebaseData = JSON.stringify(newData);
+            if (!database || typeof database.ref !== 'function') {
+                console.error('❌ Firebase database não disponível para sync em tempo real');
+                return;
+            }
 
-                    // Só atualizar se os dados mudaram
-                    if (currentData !== firebaseData) {
-                        students = newData;
-                        localStorage.setItem('aesac_students_v2', firebaseData);
-                        renderStudents();
-                        console.log('🔄 Dados atualizados em tempo real');
-                        showNotification('Dados sincronizados!', 'success');
+            try {
+                const dbRef = database.ref('aesac/students');
+                
+                dbRef.on('value', (snapshot) => {
+                    if (snapshot.exists()) {
+                        let newData = snapshot.val();
+                        
+                        // Se vier como objeto, converter para array
+                        if (newData && !Array.isArray(newData)) {
+                            newData = Object.values(newData);
+                        }
+                        
+                        // Garantir que cada aluno tem disciplines como array
+                        newData = newData.map(student => ({
+                            ...student,
+                            disciplines: Array.isArray(student.disciplines) ? student.disciplines : []
+                        }));
+                        
+                        const currentData = JSON.stringify(students);
+                        const firebaseData = JSON.stringify(newData);
+
+                        // Só atualizar se os dados mudaram
+                        if (currentData !== firebaseData) {
+                            students = newData;
+                            localStorage.setItem('aesac_students_v2', firebaseData);
+                            renderStudents();
+                            console.log('🔄 Dados atualizados em tempo real');
+                            showNotification('Dados sincronizados!', 'success');
+                        }
                     }
-                }
-            }, (error) => {
-                console.error('Erro no realtime sync:', error);
-            });
+                }, (error) => {
+                    console.error('Erro no realtime sync:', error);
+                    updateSyncStatus('local');
+                });
+                
+                console.log('✅ Sincronização em tempo real ativada');
+            } catch (error) {
+                console.error('❌ Erro ao ativar sync em tempo real:', error);
+            }
         }
 
         // Parar sincronização em tempo real
@@ -1497,9 +1966,11 @@
                 
                 // Depois carregar dados salvos
                 await loadData();
+                await loadCalendarTests(); // Carregar testes do calendário
                 renderStudents();
                 
                 startRealtimeSync(); // Iniciar sincronização em tempo real
+                checkRemindersOnLogin(); // Verificar e enviar lembretes automáticos
                 showNotification('Login efetuado com sucesso!', 'success');
             } else {
                 document.getElementById('errorMessage').style.display = 'block';
@@ -1669,6 +2140,7 @@
             document.getElementById('studentModal').classList.add('active');
             switchTab('disciplines');
             renderDisciplines();
+            renderCalendarTests(); // Carregar também os testes do calendário
         }
 
         // Fechar modal
@@ -1687,6 +2159,10 @@
 
             if (tabName === 'overview') {
                 renderOverview();
+            } else if (tabName === 'calendar') {
+                renderCalendarTests();
+            } else if (tabName === 'calendarView') {
+                renderCalendarView();
             } else {
                 renderDisciplines();
             }
@@ -1851,10 +2327,15 @@
                     `;
                 }
 
+                const classification = getClassification(avg);
+
                 item.innerHTML = `
                     <div class="discipline-header">
                         <div class="discipline-name">${disc.name}</div>
-                        <div class="discipline-average">Média: ${avg}</div>
+                        <div class="discipline-average">
+                            Média: ${avg}
+                            ${avg !== '-' ? `<span style="margin-left: 8px; padding: 4px 10px; border-radius: 12px; background: ${classification.color}; color: white; font-size: 12px; font-weight: 600;">${classification.emoji} ${classification.label}</span>` : ''}
+                        </div>
                     </div>
                     ${disc.manualAverage ? '<div style="background: #fff3cd; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 13px; color: #92400e;">⚠️ Média inserida manualmente</div>' : ''}
                     ${testsHTML}
@@ -1983,6 +2464,8 @@
             currentDiscipline = disciplineIndex;
             document.getElementById('addTestModalTitle').textContent = `Adicionar Teste - ${currentStudent.disciplines[disciplineIndex].name}`;
             document.getElementById('addTestModal').classList.add('active');
+            populateCategoryDropdown(); // Popular categorias existentes
+            toggleWeightFields(); // Mostrar campos corretos
         }
 
         function closeAddTestModal() {
@@ -2043,9 +2526,10 @@
             // Limpar média manual se adicionar teste
             currentStudent.disciplines[currentDiscipline].manualAverage = null;
             
-            await saveData();
+            await saveImmediately(); // SALVAR IMEDIATAMENTE
             renderDisciplines();
             closeAddTestModal();
+            showNotification('✅ Teste adicionado e sincronizado!', 'success');
         });
 
         // Editar teste existente
@@ -2177,6 +2661,7 @@
             e.preventDefault();
             const manualAvg = parseFloat(document.getElementById('manualAverage').value);
             currentStudent.disciplines[currentDiscipline].manualAverage = manualAvg;
+            markUnsavedChanges();
             await saveData();
             renderDisciplines();
             closeEditAverageModal();
@@ -2222,24 +2707,754 @@
             }
         }
 
+        // ============================================
+        // FUNÇÕES DO CALENDÁRIO
+        // ============================================
+        
+        async function loadCalendarTests() {
+            const saved = localStorage.getItem('aesac_calendar_tests');
+            if (saved) {
+                try {
+                    calendarTests = JSON.parse(saved);
+                } catch (e) {
+                    calendarTests = [];
+                }
+            }
+            
+            if (isFirebaseInitialized && database && typeof database.ref === 'function') {
+                try {
+                    const snapshot = await database.ref('aesac/calendar_tests').once('value');
+                    if (snapshot.exists()) {
+                        calendarTests = snapshot.val() || [];
+                        localStorage.setItem('aesac_calendar_tests', JSON.stringify(calendarTests));
+                    }
+                } catch (e) {
+                    console.log('Usando calendar tests local');
+                }
+            }
+            
+            // Atualizar contador de lembretes pendentes
+            updatePendingRemindersCount();
+        }
+
+        async function saveCalendarTests() {
+            localStorage.setItem('aesac_calendar_tests', JSON.stringify(calendarTests));
+            
+            if (isFirebaseInitialized && database && typeof database.ref === 'function') {
+                try {
+                    await database.ref('aesac/calendar_tests').set(calendarTests);
+                } catch (e) {
+                    console.log('Erro ao salvar calendar tests no Firebase');
+                }
+            }
+        }
+
+        function renderCalendarTests() {
+            if (!currentStudent) return;
+            
+            const list = document.getElementById('calendarTestsList');
+            if (!list) return;
+            
+            const studentTests = calendarTests.filter(t => t.studentId === currentStudent.id);
+            const upcomingTests = studentTests
+                .filter(t => new Date(t.date) >= new Date())
+                .sort((a, b) => new Date(a.date) - new Date(b.date));
+            
+            if (upcomingTests.length === 0) {
+                list.innerHTML = '<p style="text-align: center; color: var(--cinza-medio); padding: 20px;">Nenhum teste agendado</p>';
+                return;
+            }
+            
+            list.innerHTML = '';
+            upcomingTests.forEach(test => {
+                const daysUntil = Math.ceil((new Date(test.date) - new Date()) / (1000 * 60 * 60 * 24));
+                const priorityColors = { high: '#C62828', medium: '#F9A825', low: '#2E7D32' };
+                
+                const card = document.createElement('div');
+                card.style.cssText = `
+                    background: var(--cinza-claro);
+                    padding: 15px;
+                    border-radius: 8px;
+                    margin-bottom: 10px;
+                    border-left: 4px solid ${priorityColors[test.priority] || priorityColors.medium};
+                `;
+                
+                card.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                        <div>
+                            <div style="font-weight: 600; color: var(--azul-institucional); margin-bottom: 5px;">
+                                ${test.subject}${test.topic ? ` - ${test.topic}` : ''}
+                            </div>
+                            <div style="font-size: 13px; color: var(--cinza-medio);">
+                                📅 ${formatDate(test.date)} às ${test.time}
+                                ${test.duration ? ` • ⏱️ ${test.duration}` : ''}
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 12px; font-weight: 600; color: ${priorityColors[test.priority]};">
+                                ${daysUntil === 0 ? 'HOJE' : daysUntil === 1 ? 'AMANHÃ' : `${daysUntil} dias`}
+                            </div>
+                        </div>
+                    </div>
+                    ${test.notes ? `<div style="font-size: 13px; color: var(--cinza-medio); margin-bottom: 10px;">📝 ${test.notes}</div>` : ''}
+                    ${test.reminderSent ? `<div style="font-size: 12px; color: #2E7D32; background: #E8F5E9; padding: 6px 10px; border-radius: 6px; margin-bottom: 10px;">✅ Lembrete automático enviado</div>` : `<div style="font-size: 12px; color: #F9A825; background: #FFF8E1; padding: 6px 10px; border-radius: 6px; margin-bottom: 10px;">⏰ Lembrete será enviado automaticamente 2 dias antes</div>`}
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="btn btn-info btn-sm" onclick="editCalendarTest(${test.id})" style="font-size: 12px; padding: 6px 12px;">✏️ Editar</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteCalendarTest(${test.id})" style="font-size: 12px; padding: 6px 12px;">🗑️ Apagar</button>
+                    </div>
+                `;
+                
+                list.appendChild(card);
+            });
+        }
+
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' });
+        }
+
+        function addCalendarTest() {
+            currentEditCalendarTest = null;
+            document.getElementById('calendarTestForm').reset();
+            document.getElementById('calendarTestModal').classList.add('active');
+        }
+
+        function closeCalendarTestModal() {
+            document.getElementById('calendarTestModal').classList.remove('active');
+            currentEditCalendarTest = null;
+        }
+
+        document.getElementById('calendarTestForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const testData = {
+                id: currentEditCalendarTest ? currentEditCalendarTest.id : Date.now(),
+                studentId: currentStudent.id,
+                subject: document.getElementById('calTestSubject').value,
+                topic: document.getElementById('calTestTopic').value || '',
+                date: document.getElementById('calTestDate').value,
+                time: document.getElementById('calTestTime').value,
+                duration: document.getElementById('calTestDuration').value || '',
+                priority: document.getElementById('calTestPriority').value,
+                notes: document.getElementById('calTestNotes').value || '',
+                reminderSent: false
+            };
+            
+            if (currentEditCalendarTest) {
+                const index = calendarTests.findIndex(t => t.id === currentEditCalendarTest.id);
+                calendarTests[index] = testData;
+            } else {
+                calendarTests.push(testData);
+            }
+            
+            await saveCalendarTests();
+            renderCalendarTests();
+            closeCalendarTestModal();
+            showNotification(currentEditCalendarTest ? 'Teste atualizado!' : 'Teste adicionado!', 'success');
+        });
+
+        function editCalendarTest(testId) {
+            currentEditCalendarTest = calendarTests.find(t => t.id === testId);
+            if (!currentEditCalendarTest) return;
+            
+            document.getElementById('calTestSubject').value = currentEditCalendarTest.subject;
+            document.getElementById('calTestTopic').value = currentEditCalendarTest.topic;
+            document.getElementById('calTestDate').value = currentEditCalendarTest.date;
+            document.getElementById('calTestTime').value = currentEditCalendarTest.time;
+            document.getElementById('calTestDuration').value = currentEditCalendarTest.duration;
+            document.getElementById('calTestPriority').value = currentEditCalendarTest.priority;
+            document.getElementById('calTestNotes').value = currentEditCalendarTest.notes;
+            
+            document.getElementById('calendarTestModal').classList.add('active');
+        }
+
+        async function deleteCalendarTest(testId) {
+            if (confirm('Tem certeza que deseja apagar este teste?')) {
+                calendarTests = calendarTests.filter(t => t.id !== testId);
+                await saveCalendarTests();
+                renderCalendarTests();
+                showNotification('Teste apagado!', 'success');
+            }
+        }
+
+        async function sendTestReminder(testId) {
+            const test = calendarTests.find(t => t.id === testId);
+            if (!test) {
+                console.error('❌ Teste não encontrado:', testId);
+                return;
+            }
+            
+            const student = students.find(s => s.id === test.studentId);
+            if (!student) {
+                console.error('❌ Aluno não encontrado:', test.studentId);
+                return;
+            }
+            
+            console.log('🔍 DEBUG - Enviando lembrete');
+            console.log('Aluno:', student.name);
+            console.log('Email do aluno:', student.email);
+            console.log('Teste:', test.subject);
+            
+            try {
+                showNotification('Enviando lembretes...', 'info');
+                
+                // Preparar dados do template
+                const templateData = {
+                    to_name: student.name,
+                    student_name: student.name,
+                    subject: test.subject,
+                    topic: test.topic || 'Revisão geral',
+                    test_date: formatDate(test.date),
+                    test_time: test.time,
+                    duration: test.duration || 'Não especificado',
+                    priority: getPriorityLabel(test.priority),
+                    notes: test.notes || 'Nenhuma nota adicional'
+                };
+                
+                let emailsSent = 0;
+                let emailsToSend = [];
+                
+                // 1. Email para o aluno (se tiver email configurado)
+                if (student.email && student.email.trim() !== '') {
+                    console.log('✅ Aluno TEM email, adicionando à lista:', student.email);
+                    emailsToSend.push({
+                        ...templateData,
+                        to_email: student.email.trim(),
+                        recipient: student.name
+                    });
+                } else {
+                    console.warn('⚠️ Aluno NÃO tem email configurado!');
+                }
+                
+                // 2. Email para responsável 1
+                emailsToSend.push({
+                    ...templateData,
+                    to_email: 'paulo.deborja@gmail.com',
+                    recipient: 'Responsável 1'
+                });
+                
+                // 3. Email para responsável 2
+                emailsToSend.push({
+                    ...templateData,
+                    to_email: 'uzia25@hotmail.com',
+                    recipient: 'Responsável 2'
+                });
+                
+                console.log(`📧 Total de emails a enviar: ${emailsToSend.length}`);
+                
+                // Enviar todos os emails
+                for (const emailData of emailsToSend) {
+                    try {
+                        console.log(`📤 Enviando para: ${emailData.to_email} (${emailData.recipient})`);
+                        console.log('Dados do email:', emailData);
+                        
+                        const response = await emailjs.send(EMAILJS_CONFIG.serviceId, EMAILJS_CONFIG.templateId, emailData);
+                        
+                        emailsSent++;
+                        console.log(`✅ Email ${emailsSent} enviado com sucesso para ${emailData.to_email}`);
+                        console.log('Response:', response);
+                        
+                        // Aguardar 1 segundo entre emails para não sobrecarregar
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    } catch (error) {
+                        console.error(`❌ ERRO ao enviar para ${emailData.to_email}:`, error);
+                        console.error('Detalhes do erro:', error.text, error.status);
+                    }
+                }
+                
+                console.log(`🎉 Total enviado: ${emailsSent}/${emailsToSend.length}`);
+                
+                test.reminderSent = true;
+                test.reminderSentDate = new Date().toISOString();
+                test.emailsSent = emailsSent;
+                await saveCalendarTests();
+                
+                showNotification(`✅ ${emailsSent} email(s) enviado(s) para ${student.name} e responsáveis!`, 'success');
+            } catch (error) {
+                console.error('❌ Erro geral ao enviar lembretes:', error);
+                showNotification('❌ Erro ao enviar lembretes', 'error');
+            }
+        }
+
+        // ============================================
+        // SISTEMA AUTOMÁTICO DE LEMBRETES (2 DIAS ANTES)
+        // ============================================
+        
+        async function checkAndSendAutoReminders() {
+            const now = new Date();
+            const twoDaysFromNow = new Date(now.getTime() + (2 * 24 * 60 * 60 * 1000));
+            const twoDaysFromNowStr = twoDaysFromNow.toISOString().split('T')[0];
+            
+            // Buscar testes que são daqui a 2 dias e ainda não enviaram lembrete
+            const testsToRemind = calendarTests.filter(test => {
+                const testDate = test.date;
+                return testDate === twoDaysFromNowStr && !test.reminderSent;
+            });
+            
+            if (testsToRemind.length > 0) {
+                console.log(`📧 Enviando ${testsToRemind.length} lembretes automáticos...`);
+                
+                for (const test of testsToRemind) {
+                    await sendTestReminder(test.id);
+                    // Aguardar 2 segundos entre cada email para não sobrecarregar
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                }
+                
+                console.log('✅ Lembretes automáticos enviados!');
+            }
+            
+            // Atualizar contador de lembretes pendentes
+            updatePendingRemindersCount();
+        }
+        
+        // Atualizar contador de lembretes pendentes
+        function updatePendingRemindersCount() {
+            const now = new Date();
+            const twoDaysFromNow = new Date(now.getTime() + (2 * 24 * 60 * 60 * 1000));
+            const twoDaysFromNowStr = twoDaysFromNow.toISOString().split('T')[0];
+            
+            const pendingTests = calendarTests.filter(test => {
+                return test.date === twoDaysFromNowStr && !test.reminderSent;
+            });
+            
+            const countElement = document.getElementById('pendingCount');
+            const btnElement = document.getElementById('pendingRemindersBtn');
+            
+            if (countElement && btnElement) {
+                countElement.textContent = pendingTests.length;
+                
+                if (pendingTests.length > 0) {
+                    btnElement.style.display = 'inline-block';
+                } else {
+                    btnElement.style.display = 'none';
+                }
+            }
+        }
+        
+        // Enviar todos os lembretes pendentes manualmente
+        async function sendPendingReminders() {
+            const now = new Date();
+            const twoDaysFromNow = new Date(now.getTime() + (2 * 24 * 60 * 60 * 1000));
+            const twoDaysFromNowStr = twoDaysFromNow.toISOString().split('T')[0];
+            
+            const testsToRemind = calendarTests.filter(test => {
+                return test.date === twoDaysFromNowStr && !test.reminderSent;
+            });
+            
+            if (testsToRemind.length === 0) {
+                showNotification('✅ Não há lembretes pendentes!', 'info');
+                return;
+            }
+            
+            if (!confirm(`Enviar ${testsToRemind.length} lembrete(s) agora?`)) {
+                return;
+            }
+            
+            showNotification(`📧 Enviando ${testsToRemind.length} lembrete(s)...`, 'info');
+            
+            let sent = 0;
+            for (const test of testsToRemind) {
+                try {
+                    await sendTestReminder(test.id);
+                    sent++;
+                    // Aguardar 2 segundos entre cada email
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                } catch (error) {
+                    console.error('Erro ao enviar lembrete:', error);
+                }
+            }
+            
+            showNotification(`✅ ${sent} lembrete(s) enviado(s) com sucesso!`, 'success');
+            updatePendingRemindersCount();
+        }
+        
+        // Verificar lembretes a cada 1 hora
+        setInterval(checkAndSendAutoReminders, 60 * 60 * 1000);
+        
+        // Verificar lembretes ao fazer login
+        async function checkRemindersOnLogin() {
+            await checkAndSendAutoReminders();
+        }
+
+        function getPriorityLabel(priority) {
+            const labels = { low: 'Baixa', medium: 'Média', high: 'Alta' };
+            return labels[priority] || 'Média';
+        }
+
+        // ============================================
+        // CALENDÁRIO VISUAL (VISTA MENSAL)
+        // ============================================
+        
+        let currentCalendarViewDate = new Date(2026, 0, 1); // Janeiro 2026
+
+        function renderCalendarView() {
+            if (!currentStudent) return;
+            
+            const year = currentCalendarViewDate.getFullYear();
+            const month = currentCalendarViewDate.getMonth();
+            
+            const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                                'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+            
+            document.getElementById('calendarViewMonth').textContent = `${monthNames[month]} ${year}`;
+            
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const prevMonthDays = new Date(year, month, 0).getDate();
+            
+            const grid = document.getElementById('calendarViewGrid');
+            grid.innerHTML = '';
+            
+            // Headers dos dias da semana
+            const dayHeaders = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+            dayHeaders.forEach(day => {
+                const header = document.createElement('div');
+                header.className = 'calendar-view-day-header';
+                header.textContent = day;
+                grid.appendChild(header);
+            });
+            
+            // Dias do mês anterior
+            for (let i = firstDay - 1; i >= 0; i--) {
+                const day = prevMonthDays - i;
+                const dayCell = createCalendarViewDayCell(day, true, year, month - 1);
+                grid.appendChild(dayCell);
+            }
+            
+            // Dias do mês atual
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayCell = createCalendarViewDayCell(day, false, year, month);
+                grid.appendChild(dayCell);
+            }
+            
+            // Dias do próximo mês
+            const totalCells = grid.children.length - 7; // Menos os headers
+            const remainingCells = 42 - totalCells;
+            for (let day = 1; day <= remainingCells; day++) {
+                const dayCell = createCalendarViewDayCell(day, true, year, month + 1);
+                grid.appendChild(dayCell);
+            }
+        }
+
+        function createCalendarViewDayCell(day, otherMonth, year, month) {
+            const cell = document.createElement('div');
+            cell.className = 'calendar-view-day';
+            if (otherMonth) cell.classList.add('other-month');
+            
+            const today = new Date();
+            const cellDate = new Date(year, month, day);
+            if (cellDate.toDateString() === today.toDateString()) {
+                cell.classList.add('today');
+            }
+            
+            const dayNumber = document.createElement('div');
+            dayNumber.className = 'calendar-view-day-number';
+            dayNumber.textContent = day;
+            cell.appendChild(dayNumber);
+            
+            const dayTestsDiv = document.createElement('div');
+            dayTestsDiv.className = 'calendar-view-tests';
+            
+            // Buscar testes deste dia e deste aluno
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const dayTests = calendarTests.filter(t => 
+                t.date === dateStr && 
+                t.studentId === currentStudent.id
+            );
+            
+            dayTests.forEach(test => {
+                const testItem = document.createElement('div');
+                testItem.className = `calendar-view-test-item priority-${test.priority}`;
+                testItem.textContent = `${test.subject}`;
+                testItem.title = `${test.subject}${test.topic ? ' - ' + test.topic : ''}\n${test.time}`;
+                testItem.onclick = (e) => {
+                    e.stopPropagation();
+                    editCalendarTest(test.id);
+                };
+                dayTestsDiv.appendChild(testItem);
+            });
+            
+            cell.appendChild(dayTestsDiv);
+            
+            return cell;
+        }
+
+        function previousMonthView() {
+            currentCalendarViewDate.setMonth(currentCalendarViewDate.getMonth() - 1);
+            renderCalendarView();
+        }
+
+        function nextMonthView() {
+            currentCalendarViewDate.setMonth(currentCalendarViewDate.getMonth() + 1);
+            renderCalendarView();
+        }
+
+        function todayMonthView() {
+            currentCalendarViewDate = new Date(2026, 0, 1);
+            renderCalendarView();
+        }
+
+        // ============================================
+        // CALENDÁRIO GERAL (TODOS OS ALUNOS)
+        // ============================================
+        
+        let currentAllCalendarDate = new Date(2026, 0, 1);
+        let hasUnsavedChanges = false; // Rastrear mudanças não salvas
+
+        function switchMainTab(tabName) {
+            document.querySelectorAll('.dashboard-body').forEach(tab => {
+                tab.style.display = 'none';
+            });
+            
+            if (tabName === 'students') {
+                document.getElementById('studentsMainTab').style.display = 'block';
+            } else if (tabName === 'allCalendar') {
+                document.getElementById('allCalendarMainTab').style.display = 'block';
+                renderAllCalendarView();
+            }
+        }
+
+        function renderAllCalendarView() {
+            const year = currentAllCalendarDate.getFullYear();
+            const month = currentAllCalendarDate.getMonth();
+            
+            const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                                'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+            
+            document.getElementById('allCalendarMonth').textContent = `${monthNames[month]} ${year}`;
+            
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const prevMonthDays = new Date(year, month, 0).getDate();
+            
+            const grid = document.getElementById('allCalendarGrid');
+            grid.innerHTML = '';
+            
+            // Headers dos dias
+            const dayHeaders = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+            dayHeaders.forEach(day => {
+                const header = document.createElement('div');
+                header.className = 'calendar-view-day-header';
+                header.textContent = day;
+                grid.appendChild(header);
+            });
+            
+            // Dias do mês anterior
+            for (let i = firstDay - 1; i >= 0; i--) {
+                const day = prevMonthDays - i;
+                const dayCell = createAllCalendarDayCell(day, true, year, month - 1);
+                grid.appendChild(dayCell);
+            }
+            
+            // Dias do mês atual
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayCell = createAllCalendarDayCell(day, false, year, month);
+                grid.appendChild(dayCell);
+            }
+            
+            // Dias do próximo mês
+            const totalCells = grid.children.length - 7;
+            const remainingCells = 42 - totalCells;
+            for (let day = 1; day <= remainingCells; day++) {
+                const dayCell = createAllCalendarDayCell(day, true, year, month + 1);
+                grid.appendChild(dayCell);
+            }
+        }
+
+        function createAllCalendarDayCell(day, otherMonth, year, month) {
+            const cell = document.createElement('div');
+            cell.className = 'calendar-view-day';
+            if (otherMonth) cell.classList.add('other-month');
+            
+            const today = new Date();
+            const cellDate = new Date(year, month, day);
+            if (cellDate.toDateString() === today.toDateString()) {
+                cell.classList.add('today');
+            }
+            
+            const dayNumber = document.createElement('div');
+            dayNumber.className = 'calendar-view-day-number';
+            dayNumber.textContent = day;
+            cell.appendChild(dayNumber);
+            
+            const dayTestsDiv = document.createElement('div');
+            dayTestsDiv.className = 'calendar-view-tests';
+            
+            // Buscar TODOS os testes deste dia (de todos os alunos)
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const dayTests = calendarTests.filter(t => t.date === dateStr);
+            
+            dayTests.forEach(test => {
+                const student = students.find(s => s.id === test.studentId);
+                const testItem = document.createElement('div');
+                testItem.className = `calendar-view-test-item`;
+                testItem.style.background = student.color; // Cor do aluno
+                testItem.style.color = 'white';
+                testItem.textContent = `${student.name}: ${test.subject}`;
+                testItem.title = `${student.name}\n${test.subject}${test.topic ? ' - ' + test.topic : ''}\n${test.time}\nPrioridade: ${getPriorityLabel(test.priority)}`;
+                testItem.style.cursor = 'pointer';
+                testItem.onclick = (e) => {
+                    e.stopPropagation();
+                    // Abrir modal do aluno específico e ir direto para o teste
+                    openStudentModal(test.studentId);
+                    setTimeout(() => switchTab('calendar'), 100);
+                };
+                dayTestsDiv.appendChild(testItem);
+            });
+            
+            cell.appendChild(dayTestsDiv);
+            
+            return cell;
+        }
+
+        function previousAllCalendarMonth() {
+            currentAllCalendarDate.setMonth(currentAllCalendarDate.getMonth() - 1);
+            renderAllCalendarView();
+        }
+
+        function nextAllCalendarMonth() {
+            currentAllCalendarDate.setMonth(currentAllCalendarDate.getMonth() + 1);
+            renderAllCalendarView();
+        }
+
+        function todayAllCalendarMonth() {
+            currentAllCalendarDate = new Date(2026, 0, 1);
+            renderAllCalendarView();
+        }
+
+        // ============================================
+        // SISTEMA DE CLASSIFICAÇÕES
+        // ============================================
+        
+        function getClassification(average) {
+            const avg = parseFloat(average);
+            if (isNaN(avg) || avg < 0) return { label: '-', color: '#999', emoji: '' };
+            
+            if (avg < 9.5) {
+                return { label: 'Insuficiente', color: '#C62828', emoji: '😟' };
+            } else if (avg < 13.5) {
+                return { label: 'Suficiente', color: '#F9A825', emoji: '😐' };
+            } else if (avg < 17.5) {
+                return { label: 'Bom', color: '#2E7D32', emoji: '😊' };
+            } else {
+                return { label: 'Muito Bom', color: '#1565C0', emoji: '🌟' };
+            }
+        }
+
+        // ============================================
+        // MELHORAR SINCRONIZAÇÃO FIREBASE
+        // ============================================
+        
+        // Marcar que há mudanças não salvas
+        function markUnsavedChanges() {
+            hasUnsavedChanges = true;
+            updateSyncStatus('pending');
+        }
+
+        // Salvar automaticamente após qualquer mudança
+        async function autoSave() {
+            if (hasUnsavedChanges) {
+                await saveData();
+                await saveCalendarTests();
+                hasUnsavedChanges = false;
+            }
+        }
+
+        // NOVO: Salvar IMEDIATAMENTE ao fazer mudanças (não esperar 5 segundos)
+        async function saveImmediately() {
+            hasUnsavedChanges = true;
+            await autoSave();
+        }
+
+        // Auto-save rápido a cada 2 segundos (reduzido de 5 para 2)
+        setInterval(autoSave, 2000);
+
+        // Aviso antes de fechar se houver mudanças não salvas
+        window.addEventListener('beforeunload', function(e) {
+            if (hasUnsavedChanges) {
+                e.preventDefault();
+                e.returnValue = '⚠️ Você tem mudanças não salvas! Aguarde a sincronização...';
+                return e.returnValue;
+            }
+        });
+
+        // Salvar ao perder foco da janela
+        window.addEventListener('blur', async function() {
+            if (hasUnsavedChanges) {
+                await autoSave();
+            }
+        });
+
+        // Salvar ao minimizar ou ocultar página
+        document.addEventListener('visibilitychange', async function() {
+            if (document.hidden && hasUnsavedChanges) {
+                await autoSave();
+            }
+        });
+
         // Exportar dados
         function exportData() {
-            let csvContent = "Aluno,Disciplina,Testes,Média\n";
+            // Mostrar opções de exportação
+            const format = confirm('Clique OK para exportar em Excel (CSV)\nClique Cancelar para exportar Backup Completo (JSON)');
+            
+            if (format) {
+                // Exportar Excel/CSV
+                exportCSV();
+            } else {
+                // Exportar JSON completo
+                exportJSON();
+            }
+        }
+        
+        function exportCSV() {
+            let csvContent = "Aluno,Disciplina,Testes,Média,Classificação\n";
 
             students.forEach(student => {
                 student.disciplines.forEach(disc => {
                     const avg = calculateDisciplineAverage(disc);
-                    const testsInfo = disc.tests.map(t => `${t.name}(${t.grade})`).join('; ');
-                    csvContent += `${student.name},${disc.name},"${testsInfo}",${avg}\n`;
+                    const classification = getClassification(avg);
+                    const testsInfo = disc.tests ? disc.tests.map(t => `${t.name}(${t.grade})`).join('; ') : '';
+                    csvContent += `${student.name},${disc.name},"${testsInfo}",${avg},${classification.label}\n`;
                 });
             });
 
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            // Adicionar BOM para UTF-8 (para Excel reconhecer acentos)
+            const BOM = '\uFEFF';
+            const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = 'notas_excel_aesac_' + new Date().toISOString().split('T')[0] + '.csv';
+            document.body.appendChild(a);
+            a.click();
+            
+            // Limpeza
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 100);
+            
+            showNotification('✅ Excel exportado com sucesso!', 'success');
+        }
+        
+        function exportJSON() {
+            const exportData = {
+                version: '2.0',
+                exportDate: new Date().toISOString(),
+                students: students,
+                calendarTests: calendarTests
+            };
+            
+            const jsonString = JSON.stringify(exportData, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8;' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'notas_aesac_' + new Date().toISOString().split('T')[0] + '.csv';
+            a.download = 'backup_completo_aesac_' + new Date().toISOString().split('T')[0] + '.json';
             a.click();
+            window.URL.revokeObjectURL(url);
+            showNotification('✅ Backup JSON exportado com sucesso!', 'success');
         }
 
         // Inicializar
